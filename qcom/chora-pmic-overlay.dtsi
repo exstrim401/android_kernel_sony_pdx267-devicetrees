@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/qcom,spmi-adc5-gen3-pmxr2230.h>
+#include <dt-bindings/iio/qcom,spmi-adc5-gen3-pm8550vx.h>
+
+&spmi0_bus {
+	#include "pmk8550.dtsi"
+	#include "pmxr2230.dtsi"
+	#include "pm8550vs.dtsi"
+	#include "pmr735b.dtsi"
+};
+
+&pm8550vs_c {
+	status = "ok";
+};
+
+&led_controller {
+	nvmem = <&pmk8550_sdam_21>, <&pmk8550_sdam_22>;
+	nvmem-names = "lpg_chan_sdam", "lut_sdam";
+	status = "ok";
+};
+
+&pmxr2230_flash_1 {
+	status = "ok";
+};
+
+&soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+};
+
+&thermal_zones {
+	pmr735b_temp_alarm: pmr735b_tz {
+		polling-delay-passive = <100>;
+		thermal-sensors = <&pmr735b_tz>;
+
+		trips {
+			pmr735b_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pmr735b_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			pmr735b_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+
+	pmxr2230_temp_alarm: pmxr2230_tz {
+		polling-delay-passive = <100>;
+		thermal-sensors = <&pmxr2230_tz>;
+
+		trips {
+			pmxr2230_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pmxr2230_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+
+			pmxr2230_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+};
+
+&pmxr2230_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};
+
+&soc {
+	gpio_key {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&key_vol_up_default>;
+		vol_up {
+			label = "volume_up";
+			gpios = <&pmxr2230_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEUP>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+
+	pmic-pon-log {
+		compatible = "qcom,pmic-pon-log";
+		nvmem = <&pmk8550_sdam_5>, <&pmk8550_sdam_6>;
+		nvmem-names = "pon_log0", "pon_log1";
+		depends-on-supply = <&wdog>;
+	};
+};
+
+&pmk8550_gpios {
+	pinctrl-0 = <&alt_sleep_clk_default>;
+	pinctrl-names = "default";
+
+	alt_sleep_clk {
+		alt_sleep_clk_default: alt_sleep_clk_default {
+			pins = "gpio3";
+			function = "func1";
+			input-disable;
+			output-enable;
+			bias-disable;
+			power-source = <0>;
+		};
+	};
+};

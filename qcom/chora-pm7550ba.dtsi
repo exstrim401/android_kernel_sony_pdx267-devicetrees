@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/iio/qcom,spmi-adc5-gen3-pm7550ba.h>
+
+&spmi0_bus {
+	#include "pm7550ba.dtsi"
+};
+
+&spmi_debug_bus_0 {
+	pm7550ba@7 {
+		compatible = "qcom,spmi-pmic";
+		reg = <7 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		qcom,can-sleep;
+	};
+};
+
+&pm7550ba_amoled {
+	status = "ok";
+};
+
+&pm7550ba_amoled_ecm {
+	status = "ok";
+};
+
+&pmic_glink_debug {
+	/* Primary SPMI bus */
+	glink_debug_spmi0: spmi@0 {
+		reg = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		qcom,bus-type = "spmi";
+
+		qcom,pm7550ba-debug@7 {
+			compatible = "qcom,spmi-pmic";
+			reg = <7 SPMI_USID>;
+			qcom,can-sleep;
+		};
+	};
+};
+
+&pmk8550_vadc {
+	/* PM7550BA Channel nodes */
+	pm7550ba_offset_ref {
+		reg = <PM7550BA_ADC5_GEN3_OFFSET_REF>;
+		label = "pm7550ba_offset_ref";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pm7550ba_vref_1p25 {
+		reg = <PM7550BA_ADC5_GEN3_1P25VREF>;
+		label = "pm7550ba_vref_1p25";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pm7550ba_die_temp {
+		reg = <PM7550BA_ADC5_GEN3_DIE_TEMP>;
+		label = "pm7550ba_die_temp";
+		qcom,pre-scaling = <1 1>;
+	};
+
+	pm7550ba_vph_pwr {
+		reg = <PM7550BA_ADC5_GEN3_VPH_PWR>;
+		label = "pm7550ba_vph_pwr";
+		qcom,pre-scaling = <1 3>;
+	};
+
+	pm7550ba_chg_temp {
+		reg = <PM7550BA_ADC5_GEN3_CHG_TEMP_V>;
+		label = "pm7550ba_chg_temp";
+	};
+
+	pm7550ba_iin_fb {
+		reg = <PM7550BA_ADC5_GEN3_IIN_FB>;
+		label = "pm7550ba_iin_fb";
+	};
+
+	pm7550ba_ichg_fb {
+		reg = <PM7550BA_ADC5_GEN3_ICHG_FB>;
+		label = "pm7550ba_ichg_fb";
+	};
+
+	pm7550ba_batt_therm {
+		reg = <PM7550BA_ADC5_GEN3_AMUX_THM1_BATT_THERM_100K_PU>;
+		label = "pm7550ba_batt_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		qcom,scale-fn-type = <ADC_SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K>;
+	};
+};
+
+&pm7550ba_vib {
+	status = "okay";
+};
+
+&pm7550ba_tz {
+	io-channels = <&pmk8550_vadc PM7550BA_ADC5_GEN3_DIE_TEMP>;
+	io-channel-names = "thermal";
+};
+
+&battery_charger {
+	qcom,thermal-mitigation-step = <500000>;
+	#cooling-cells = <2>;
+};
+
+&thermal_zones {
+	pm7550ba_temp_alarm: pm7550ba_tz {
+		polling-delay-passive = <100>;
+		thermal-sensors = <&pm7550ba_tz>;
+
+		trips {
+			pm7550ba_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			pm7550ba_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "hot";
+			};
+
+			pm7550ba_trip2: trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "critical";
+			};
+		};
+	};
+};

@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+/ {
+	host {};
+};
+
+&firmware {
+	qcom_scm {
+		compatible = "qcom,scm-v1.1", "qcom,scm";
+		interrupts = <0x00 0x3ad 0x01>;
+		qcom,max-queues = <0x23>;
+	};
+
+};
+
+&reserved_memory {
+};
+
+&non_devices_common {
+		required-subnodes-rm = <&minidump_rm
+					&qcom_gunyah_vm>;
+};
+
+&{/}  {
+
+	minidump: minidump {
+		compatible = "qcom,minidump_rm", "qcom,minidump-rm";
+	};
+
+	qcom_gunyah_vm: qcom,gunyah-vm {
+		compatible = "qcom,gunyah-vm-id-1.0", "qcom,gunyah-vm-id";
+		qcom,image-name = "qcom,oemvm";
+		qcom,owner-vmid = <0x03>;
+		qcom,peers = "vm-name:qcom,trustedvm";
+		qcom,vendor = "Qualcomm";
+		qcom,vm-guid = "847bfe26-0b12-5728-812a-06103f6bdec0";
+		qcom,vm-signing-authority = "qcom,oem";
+		qcom,vm-uri = "vmuid/oemvm";
+		qcom,vmid = <0x31>;
+	};
+};

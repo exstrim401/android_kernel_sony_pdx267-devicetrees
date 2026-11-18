@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+#include "chora-pmic-overlay.dtsi"
+#include "chora-pmiv010x.dtsi"
+
+&sdhc_2 {
+	vdd-supply = <&L13B_E0>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <0 976310>;
+
+	vdd-io-supply = <&L23B_E0>;
+	qcom,vdd-io-voltage-level = <1800000 2960000>;
+	qcom,vdd-io-current-level = <0 5830>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_on>;
+	pinctrl-1 = <&sdc2_off>;
+};
+
+&pmiv010x_amoled {
+	status = "ok";
+};
+
+&pmiv010x_amoled_ecm {
+	status = "ok";
+};

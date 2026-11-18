@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+#include <dt-bindings/iio/qcom,spmi-adc5-gen3-pmiv010x.h>
+
+&spmi0_bus {
+	#include "pmd802x.dtsi"
+};
+
+&pmd802x_amoled {
+	status = "ok";
+};
+
+&pmd802x_amoled_ecm {
+	interrupts = <0x0 0x7c 0x1 IRQ_TYPE_EDGE_RISING>,
+		     <0x0 0x7d 0x1 IRQ_TYPE_EDGE_RISING>,
+		     <0x0 0x98 0x1 IRQ_TYPE_EDGE_RISING>;
+};

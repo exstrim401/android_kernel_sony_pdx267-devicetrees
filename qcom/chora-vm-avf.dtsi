@@ -1,0 +1,332 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ */
+
+#include <dt-bindings/arm/msm/qti-smmu-proxy-dt-ids.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,chora-gcc.h>
+
+/ {
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+	qcom,msm-id = <724 0x10000>, <744 0x10000>;
+
+	host {
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+
+		non-devices-common {
+			reg = <0x0 0x0 0x0 0x0>;
+			android,pvmfw,target = <&non_devices_common>;
+		};
+
+		vm-tlmm-irq@0 {
+			reg = <0x0 0x0 0x0 0x0>;
+			android,pvmfw,target = <&vm_tlmm_irq>;
+		};
+
+		qcom,wdt@17410000 { // Same as PVM
+			reg = <0x0 0x17410000 0x0 0x1000>;
+			android,pvmfw,target = <&wdog>;
+		};
+
+		pinctrl@f100000 { // Same as PVM
+			reg = <0x0 0x0f100000 0x0 0xf00000>;
+			android,pvmfw,target = <&tlmm>;
+		};
+
+		qcom,gh-qtimer@1742b000 {  // Same as PVM
+			reg = <0x0 0x1742b000 0x0 0x1000>;
+			android,pvmfw,target = <&qcom_gh_qtimer>;
+		};
+	};
+
+	qcom,vm-config {
+		compatible = "qcom,vm-1.0";
+		vm-type = "aarch64-guest";
+		boot-config = "fdt,unified";
+		os-type = "linux";
+		kernel-entry-segment = "kernel";
+		kernel-entry-offset = <0x0 0x0>;
+		vendor = "QTI";
+		image-name = "qcom,trustedvm";
+		qcom,pasid = <0x0 0x1c>;
+		// Information for TZ client registration
+		qcom,qtee-config-info = "p=3,9,C,39,77,78,7C,8F,96,97,C8,FE,10C,11B,159,199,47E,7F1,CDF;";
+		// VMID
+		qcom,secdomain-ids = <45>;
+		// Index of primary secdomain-id, if qcom,secdomain-ids property present
+		qcom,primary-vm-index = <0>;
+		vm-uri = "vmuid/trusted-ui";
+		// A unique ID that can be used by clients to identify a VM image
+		vm-guid = "598085da-c516-5b25-a9c1-927a02819770";
+		qcom,sensitive;
+
+		vm-attrs = "context-dump", "crash-restart", "no-vpm-aggregation";
+
+		/*
+		 * Private IO space and IRQs (not Lent or donated)
+		 * A VM may need access to IO space / IRQS not initially owned by HLOS.
+		 * Below provides a way for this to be handled.
+		 * iomemory-ranges <PA IPA SIZE ACCESS>
+		 * Soc dependent
+		 */
+		iomemory-ranges;
+
+		/*
+		 * Allow VMMIO traps. Currently doesn't include
+		 * PVTIME, VIRTFREQ and GIC virtual devices.
+		 * GIC is emulated by Gunyah.
+		 * Dynamically nominate the vmmio ranges.
+		 */
+		vmmio-ranges;
+
+		/*
+		 * gic-irq-ranges <HWIRQ VIRQ>
+		 * Add based on use cases
+		 */
+		gic-irq-ranges;
+
+		segments {
+			fallback-dtb = <2>;
+			ramdisk = <3>;
+		};
+
+		vcpus {
+			affinity = "proxy";
+		};
+
+		vdevices {
+			generate = "/hypervisor";
+
+			// vdevice-type properties herein are specific to host vdevice-type
+
+			minidump {
+				vdevice-type = "minidump";
+				push-compatible = "qcom,minidump_rm";
+				minidump_allowed;
+			};
+
+			// resource-manager RPC link
+			rm-rpc {
+				vdevice-type = "rm-rpc";
+				generate = "/hypervisor/qcom,resource-mgr";
+				console-dev;
+				// maximum message size in bytes
+				message-size = <0x000000f0>;
+				// depth(size) of transmit queue
+				queue-depth = <0x00000008>;
+				// RM vdevice label
+				qcom,label = <0x1>;
+			};
+
+			test-dbl-tuivm {
+				vdevice-type = "doorbell";
+				generate = "/hypervisor/test-dbl-tuivm";
+				qcom,label = <0x104>;
+				// Use HLOS VMID as peer
+				peer-default;
+			};
+
+			test-dbl-tuivm-source {
+				vdevice-type = "doorbell-source";
+				generate = "/hypervisor/test-dbl-tuivm-source";
+				qcom,label = <0x104>;
+				peer-default;
+			};
+
+			test-msgq-tuivm {
+				vdevice-type = "message-queue-pair";
+				generate = "/hypervisor/test-msgq-tuivm-pair";
+				message-size = <0xf0>;
+				queue-depth = <0x8>;
+				qcom,label = <0x104>;
+				peer-default;
+			};
+
+			// Retrieve VM dmesg
+			ddump-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/ddump-shm";
+				push-compatible = "qcom,ddump-gunyah-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x107>;
+					#address-cells = <0x2>;
+					base = <0x00 0x64016000>;
+				};
+			};
+
+			// Notify to VM when PVM crashes
+			gunyah-panic-notifier-shm {
+				vdevice-type = "shm-doorbell";
+				generate = "/hypervisor/gpn-shm";
+				push-compatible = "qcom,gunyah-panic-gen";
+				peer-default;
+				memory {
+					qcom,label = <0x109>;
+					#address-cells = <0x2>;
+					base = <0x00 0x64015000>;
+				};
+			};
+
+			gpiomem0 {
+				// Generate an iomem device
+				vdevice-type = "iomem";
+				patch = "/soc/tlmm-vm-mem-access";
+				push-compatible = "qcom,tlmm-vm-mem-access";
+				// Use HLOS VMID as peer
+				peer-default;
+				memory {
+					// Reference a memparcel by label
+					qcom,label = <0x8>;
+					qcom,mem-info-tag = <0x3>;
+					// Allocate from VM IPA address space
+					allocate-base;
+				};
+			};
+		};
+	};
+};
+
+&{/} {
+	dmesg_dump: dmesg-dump {
+		compatible = "qcom,dmesg-dump";
+		gunyah-label = <0x107>;
+		ddump-pubkey-size = <270>;
+		ddump-pubkey = /bits/ 8 <0x30 0x82 0x01 0x0a 0x02 0x82 0x01 0x01 0x00 0xe6 0x4b 0x31 0x82 0x61 0x14 0xf2
+				0xbe 0xd1 0xe4 0xde 0xe7 0xed 0xba 0x8f 0x3b 0x23 0x5f 0x7a 0xb8 0x16 0x40 0x96
+				0xae 0x77 0x5e 0x1b 0xf0 0x3f 0x39 0xab 0x69 0x90 0xb1 0xd4 0x70 0xcb 0x66 0xbc
+				0x41 0x08 0x1d 0x37 0xdb 0x49 0xc8 0x49 0x5b 0x99 0x5c 0x32 0xbe 0x62 0xd5 0xa7
+				0x3c 0x0f 0xa4 0x4b 0x43 0x49 0xdb 0x54 0x69 0x06 0x0c 0xe5 0x99 0xe5 0xf9 0x1e
+				0x25 0x84 0x17 0x47 0x62 0x2b 0x5d 0x0d 0xec 0x5e 0xc6 0xb5 0x86 0xb9 0x75 0x6d
+				0xfe 0x7d 0x35 0x4f 0x35 0xc1 0x48 0x10 0x75 0x4c 0x57 0x6b 0x46 0x4b 0xff 0x5b
+				0x52 0x22 0x40 0x2c 0xb0 0x47 0xe1 0x47 0xc4 0xe5 0x47 0x0c 0x56 0xe8 0x17 0xd0
+				0x7e 0xc3 0x4d 0x9f 0xea 0xd0 0xea 0x87 0xe5 0x51 0x39 0xe8 0x45 0x4c 0x54 0x27
+				0x9c 0x50 0x38 0xb7 0x72 0x93 0x12 0x0b 0xa1 0x2f 0x9e 0x04 0x92 0x20 0x6e 0x31
+				0x42 0x87 0xe1 0xfe 0x88 0x3f 0xe5 0x09 0xe1 0xf9 0xbe 0x44 0xc6 0xbf 0x10 0x79
+				0x36 0x47 0x7b 0xa0 0x8e 0x27 0x31 0xa3 0x70 0x69 0x01 0x54 0x92 0xf4 0x42 0xbd
+				0xcd 0x7e 0x79 0x2b 0x2c 0xe1 0xd4 0xba 0x6e 0x34 0xc6 0xe6 0xc6 0x5c 0x63 0xd0
+				0x7f 0x39 0x1f 0xe8 0x8d 0x67 0xe6 0x27 0x67 0x0d 0x16 0x57 0x94 0xd1 0xfb 0xdf
+				0xce 0xaf 0xfd 0x43 0xb3 0xbe 0x5d 0x83 0x4b 0x93 0x05 0xe8 0xdf 0x04 0xad 0xac
+				0xeb 0xa6 0x81 0xa7 0xd5 0x04 0x63 0xbf 0x83 0xb8 0x0c 0xbc 0x20 0x18 0xb5 0x50
+				0xd7 0x61 0x84 0x11 0xca 0x2d 0x22 0xb3 0x29 0x02 0x03 0x01 0x00 0x01>;
+	};
+
+	firmware: firmware {
+		qcom_scm: qcom_scm {
+			compatible = "qcom,scm";
+		};
+	};
+
+	soc: soc { };
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+};
+
+&reserved_memory {
+	kinfo_mem: debug_kinfo_region {
+		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
+		size = <0x0 0x1000>;
+		no-map;
+	};
+};
+
+&soc {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+	compatible = "simple-bus";
+
+	/* Refer all non device nodes which are already not referred by a device node
+	 * Some of the non device nodes might be already a dependency.
+	 * So they are not added in this.
+	 */
+	non_devices_common: non-devices-common {
+		reg = <0x0 0x0 0x0 0x0>;
+		required-subnodes = <&qcom_scm
+			&dmesg_dump
+			&kinfo_mem
+			&qcom_test_dbl_tuivm
+			&qcom_test_msgq_tuivm
+			&qcom_gunyah_panic_notifier
+			&google_debug_kinfo>;
+	};
+
+	gcc: clock-controller@100000 { // Same as PVM
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	vm_tlmm_irq: vm-tlmm-irq@0 {
+		compatible = "qcom,tlmm-vm-irq";
+		reg = <0x0 0x0 0x0 0x0>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	tlmm: pinctrl@f100000 { // Same as PVM
+		compatible = "qcom,chora-vm-tlmm";
+		reg = <0x0 0xf100000 0x0 0xf00000>;
+		interrupts-extended = <&vm_tlmm_irq 1 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		// Valid Soc dependent pin
+		gpios;
+	};
+
+	wdog: qcom,wdt@17410000 {  // Same as PVM
+		compatible = "qcom,msm-watchdog";
+		reg = <0x0 0x17410000 0x0 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <GIC_SPI 0x3a0 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0x3a1 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
+	};
+
+	qcom_test_dbl_tuivm: qcom,test-dbl-tuivm {
+		compatible = "qcom,gh-dbl";
+		qcom,label = <0x104>;
+	};
+
+	qcom_test_msgq_tuivm: qcom,test-msgq-tuivm {
+		compatible = "qcom,gh-msgq-test";
+		gunyah-label = <0x104>;
+		affinity = <0>;
+	};
+
+	qcom_gh_qtimer: qcom,gh-qtimer@1742b000 { // Same as PVM
+		compatible = "qcom,gh-qtmr";
+		reg = <0x0 0x1742b000 0x0 0x1000>;
+		reg-names = "qtmr-base";
+		interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "qcom,qtmr-intr";
+		qcom,secondary;
+	};
+
+	qcom_gunyah_panic_notifier: qcom,gunyah-panic-notifier {
+		compatible = "qcom,gh-panic-notifier";
+		gunyah-label = <0x109>;
+	};
+
+	google_debug_kinfo: google,debug-kinfo {
+		compatible = "google,debug-kinfo";
+		memory-region = <&kinfo_mem>;
+	};
+};
+
+#include "msm-arm-smmu-chora-vm-avf.dtsi"
+#include "chora-vm-dma-heaps-avf.dtsi"
+#include "chora-vm-rm-info-avf.dtsi"
